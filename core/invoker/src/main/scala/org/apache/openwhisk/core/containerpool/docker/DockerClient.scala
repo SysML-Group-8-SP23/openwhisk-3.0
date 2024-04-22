@@ -150,6 +150,12 @@ class DockerClient(dockerHost: Option[String] = None,
         s"""
         sshpass -p grp8root ssh -o StrictHostKeyChecking=no root@$h /home/cc/create_throttled_container_network.sh testnet 10Mbit
         """), Duration.Inf)
+      ).map(
+        //log the output of each future using transid
+        f => f.andThen {
+          case Success(output) => log.info(this, s"Output: $output")
+          case Failure(e) => log.error(this, s"Error: ${e.getMessage}")
+        }
       )
 
       runCmd(
