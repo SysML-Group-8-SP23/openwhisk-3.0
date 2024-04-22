@@ -153,7 +153,7 @@ class DockerClient(dockerHost: Option[String] = None,
       )
 
       runCmd(
-        Seq("run", "--network=testnet","-d") ++ args ++ Seq(image),
+        Seq("run","-d") ++ args ++ Seq(image) ++ Seq("--network=testnet"),
         config.timeouts.run,
         if (config.maskDockerRunArgs) Some(Seq("run", "-d", "**ARGUMENTS HIDDEN**", image)) else None)
         .andThen {
