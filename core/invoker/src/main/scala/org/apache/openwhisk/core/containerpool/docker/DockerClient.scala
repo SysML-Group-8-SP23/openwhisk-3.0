@@ -126,7 +126,7 @@ class DockerClient(dockerHost: Option[String] = None,
   // Use a semaphore to make sure that at most 10 `docker run` commands are active
   // the same time.
   def run(image: String, args: Seq[String] = Seq.empty[String])(
-    implicit transid: TransactionId): Future[ContainerId] = {
+    implicit transid: TransactionId, logging: Logging): Future[ContainerId] = {
     Future {
       blocking {
         // Acquires a permit from this semaphore, blocking until one is available, or the thread is interrupted.
@@ -146,16 +146,20 @@ class DockerClient(dockerHost: Option[String] = None,
       val host = dockerHost.map(host => Seq(s"$host")).getOrElse(Seq.empty[String])
 
       //executeProcess on all the hosts
-      host.map(h => executeProcess(Seq(
-        s"""
-        sshpass -p grp8root ssh -o StrictHostKeyChecking=no root@$h /home/cc/create_throttled_container_network.sh testnet 10Mbit
-        """), Duration.Inf)
-      ).map(
-        //log the output of each future using transid
-        f => f.andThen {
-          case Success(output) => log.info(this, s"Output: $output")
-          case Failure(e) => log.error(this, s"Error: ${e.getMessage}")
+      host.map(h => {
+          val result = executeProcess(
+            Seq(
+              s"""
+          sshpass -p grp8root ssh -o StrictHostKeyChecking=no root@$h /home/cc/create_throttled_container_network.sh testnet 10Mbit
+          """), Duration.Inf)
+            result.onComplete{
+              case Success(value) => log.info(this, s"REXEC Success: $value")
+              case Failure(e) => log.info(this,s"REXEC Failure: $e")
+            }
+
+            result
         }
+
       )
 
       runCmd(
