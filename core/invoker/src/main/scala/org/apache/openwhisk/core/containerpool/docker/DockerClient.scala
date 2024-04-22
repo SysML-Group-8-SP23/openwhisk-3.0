@@ -126,7 +126,7 @@ class DockerClient(dockerHost: Option[String] = None,
   // Use a semaphore to make sure that at most 10 `docker run` commands are active
   // the same time.
   def run(image: String, args: Seq[String] = Seq.empty[String])(
-    implicit transid: TransactionId, logging: Logging): Future[ContainerId] = {
+    implicit transid: TransactionId): Future[ContainerId] = {
     Future {
       blocking {
         // Acquires a permit from this semaphore, blocking until one is available, or the thread is interrupted.
