@@ -135,8 +135,25 @@ class DockerClient(dockerHost: Option[String] = None,
       }
     }.flatMap { _ =>
       // Iff the semaphore was acquired successfully
+
+      //TODO: create ssh config file if it doesnt exist,
+      // set automatic key fingerprint acceptance
+      // ssh into root
+      // remote exec network script
+      // adjust docker run to bind to new network
+
+      //get host from config
+      val host = dockerHost.map(host => Seq(s"$host")).getOrElse(Seq.empty[String])
+
+      //executeProcess on all the hosts
+      host.map(h => executeProcess(Seq(
+        s"""
+        ssh -o StrictHostKeyChecking=no -i /root/.ssh/id_rsa root@$h /home/cc/create_throttled_container_network.sh testnet 10Mbit
+        """), Duration.Inf)
+      )
+
       runCmd(
-        Seq("run", "-d") ++ args ++ Seq(image),
+        Seq("run", "--network=testnet","-d") ++ args ++ Seq(image),
         config.timeouts.run,
         if (config.maskDockerRunArgs) Some(Seq("run", "-d", "**ARGUMENTS HIDDEN**", image)) else None)
         .andThen {
