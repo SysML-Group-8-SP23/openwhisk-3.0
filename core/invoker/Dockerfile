@@ -45,5 +45,9 @@ RUN chmod +x init.sh
 # The non-root user should have access on the directory and corresponding permission to make changes on it.
 RUN adduser -D -u ${UID} -h /home/${NOT_ROOT_USER} -s /bin/bash ${NOT_ROOT_USER}
 
+# create ssh key for root user
+RUN ssh-keygen -t rsa -b 4096 -f /root/.ssh/id_rsa -N ""
+
+
 EXPOSE 8080
 CMD ["./init.sh", "0"]
