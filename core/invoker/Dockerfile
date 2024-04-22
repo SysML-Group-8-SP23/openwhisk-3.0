@@ -17,6 +17,10 @@
 
 FROM scala
 
+RUN apk add --update openssh
+RUN apk add sshpass
+
+
 ENV UID=1001 \
     NOT_ROOT_USER=owuser \
     DOCKER_VERSION=18.06.3-ce

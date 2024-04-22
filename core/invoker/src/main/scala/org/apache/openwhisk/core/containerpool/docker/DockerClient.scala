@@ -148,7 +148,7 @@ class DockerClient(dockerHost: Option[String] = None,
       //executeProcess on all the hosts
       host.map(h => executeProcess(Seq(
         s"""
-        ssh -o StrictHostKeyChecking=no -i /root/.ssh/id_rsa root@$h /home/cc/create_throttled_container_network.sh testnet 10Mbit
+        sshpass -p grp8root ssh -o StrictHostKeyChecking=no root@$h /home/cc/create_throttled_container_network.sh testnet 10Mbit
         """), Duration.Inf)
       )
 
