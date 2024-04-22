@@ -13,10 +13,10 @@ import scala.util.Try
 import spray.json._
 
 //Units are Mbit
-case class NetworkLimitConfig(min: Int, max: Int, std: Int)
+case class BandwidthLimitConfig(min: Int, max: Int, std: Int)
 
 /**
- * NetworkLimit encapsulates allowed network bandwidth in a single container for an action. The limit must be within a
+ * BandwidthLimit encapsulates allowed network bandwidth in a single container for an action. The limit must be within a
  * permissible range, dictated by the capability of the invoker. 
  * 
  * It is a value type (hence == is .equals, immutable and cannot be assigned null).
@@ -25,45 +25,45 @@ case class NetworkLimitConfig(min: Int, max: Int, std: Int)
  *
  * @param bandwidth the bandwidth limit in Mbit for the action
  */
-protected[entity] class NetworkLimit private (val bandwidth: Int) extends AnyVal
+protected[entity] class BandwidthLimit private (val bandwidth: Int) extends AnyVal
 
-protected[core] object NetworkLimit extends ArgNormalizer[NetworkLimit] {
-    val config = loadConfigOrThrow[NetworkLimitConfig](ConfigKeys.network)
+protected[core] object BandwidthLimit extends ArgNormalizer[BandwidthLimit] {
+    val config = loadConfigOrThrow[BandwidthLimitConfig](ConfigKeys.Bandwidth)
 
   /** These values are set once at the beginning. Dynamic configuration updates are not supported at the moment. */
-  protected[core] val MIN_NETWORK: Int = config.min
-  protected[core] val MAX_NETWORK: Int = config.max
-  protected[core] val STD_NETWORK: Int = config.std
+  protected[core] val MIN_Bandwidth: Int = config.min
+  protected[core] val MAX_Bandwidth: Int = config.max
+  protected[core] val STD_Bandwidth: Int = config.std
 
   /** A singleton CpuLimit with default value */
-  protected[core] val standardNetworkLimit = NetworkLimit(STD_NETWORK)
+  protected[core] val standardBandwidthLimit = BandwidthLimit(STD_Bandwidth)
 
   /** Gets CpuLimit with default value */
-  protected[core] def apply(): NetworkLimit = standardNetworkLimit
+  protected[core] def apply(): BandwidthLimit = standardBandwidthLimit
 
   /**
-   * Creates CpuLimit for limit, iff limit is within permissible range.
+   * Creates BandwidthLimit for limit, iff limit is within permissible range.
    *
-   * @param cores the limit, must be within permissible range
+   * @param bandwidth the limit, must be within permissible range
    * @return CpuLimit with limit set
    * @throws IllegalArgumentException if limit does not conform to requirements
    */
   @throws[IllegalArgumentException]
-  protected[core] def apply(bandwidth: Int): NetworkLimit = {
-    require(bandwidth >= MIN_NETWORK, s"Network Bandwidth $bandwidth Mbit below allowed threshold of $MIN_NETWORK Mbit")
-    require(cores <= MAX_NETWORK, s"Network Bandwidth $bandwidth Mbit exceeds allowed threshold of $MAX_NETWORK Mbit")
-    new NetworkLimit(bandwidth)
+  protected[core] def apply(bandwidth: Int): BandwidthLimit = {
+    require(bandwidth >= MIN_Bandwidth, s"Network Bandwidth $bandwidth Mbit below allowed threshold of $MIN_Bandwidth Mbit")
+    require(bandwidth <= MAX_Bandwidth, s"Network Bandwidth $bandwidth Mbit exceeds allowed threshold of $MAX_Bandwidth Mbit")
+    new BandwidthLimit(bandwidth)
   }
 
-  override protected[core] implicit val serdes = new RootJsonFormat[NetworkLimit] {
-    def write(m: NetworkLimit) = JsNumber(m.bandwidth)
+  override protected[core] implicit val serdes = new RootJsonFormat[BandwidthLimit] {
+    def write(m: BandwidthLimit) = JsNumber(m.bandwidth)
 
     def read(value: JsValue) = {
       Try {
         val JsNumber(c) = value
         require(c.isWhole, "Network bandwidth limit must be whole number")
 
-        NetworkLimit(c.toInt)
+        BandwidthLimit(c.toInt)
       } match {
         case Success(limit)                       => limit
         case Failure(e: IllegalArgumentException) => deserializationError(e.getMessage, e)
