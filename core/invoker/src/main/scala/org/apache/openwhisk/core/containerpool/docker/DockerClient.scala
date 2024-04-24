@@ -97,6 +97,9 @@ class DockerClient(dockerHost: Option[String] = None,
     }
     log.info(this, "dockercmd here")
     val host = dockerHost.map(host => Seq("--host", s"tcp://$host")).getOrElse(Seq.empty[String])
+    for (h <- host) {
+      log.info(this, s"Using docker host: $h")
+    }
     Seq(dockerBin) ++ host
   }
 
