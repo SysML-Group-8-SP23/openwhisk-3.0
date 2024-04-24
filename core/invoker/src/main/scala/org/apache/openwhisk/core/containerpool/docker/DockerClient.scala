@@ -95,7 +95,7 @@ class DockerClient(dockerHost: Option[String] = None,
     } getOrElse {
       throw new FileNotFoundException(s"Couldn't locate docker binary (tried: ${alternatives.mkString(", ")}).")
     }
-
+    log.info(this, "dockercmd here")
     val host = dockerHost.map(host => Seq("--host", s"tcp://$host")).getOrElse(Seq.empty[String])
     Seq(dockerBin) ++ host
   }
