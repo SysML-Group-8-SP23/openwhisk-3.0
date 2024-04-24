@@ -142,8 +142,7 @@ class DockerClient(dockerHost: Option[String] = None,
       // adjust docker run to bind to new network
 
       //get host from config
-//      val host = dockerHost.map(host => Seq(s"$host")).getOrElse(Seq.empty[String])
-
+      dockerHost.foreach(host => log.info(this,s"Running on docker host: $host"))
       //executeProcess on all the hosts
 //      host.map(h => {
 //          val result = executeProcess(
@@ -160,7 +159,7 @@ class DockerClient(dockerHost: Option[String] = None,
 //        }
 //
 //      )
-      log.info(this, s"Running docker run for image $image")
+
       runCmd(
         Seq("run","-d") ++ args ++ Seq(image) ++ Seq("--network=testnet"),
         config.timeouts.run,
