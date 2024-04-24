@@ -302,6 +302,7 @@ class ContainerProxy(factory: (TransactionId,
       logging.info(this, s"Cold start - Prasoon Log")
       logging.info(this, s"Job contains the following: (${job.action})")
       logging.info(this, s"Job contains the following: (${job.msg})")
+      logging.info(this, s"Job contains the limits of: (${job.action.limits})")
       // create a new container
       val container = factory(
         job.msg.transid,

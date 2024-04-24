@@ -95,11 +95,7 @@ class DockerClient(dockerHost: Option[String] = None,
     } getOrElse {
       throw new FileNotFoundException(s"Couldn't locate docker binary (tried: ${alternatives.mkString(", ")}).")
     }
-    log.info(this, "dockercmd here")
     val host = dockerHost.map(host => Seq("--host", s"tcp://$host")).getOrElse(Seq.empty[String])
-    for (h <- host) {
-      log.info(this, s"Using docker host: $h")
-    }
     Seq(dockerBin) ++ host
   }
 
@@ -164,7 +160,7 @@ class DockerClient(dockerHost: Option[String] = None,
 //      )
 
       runCmd(
-        Seq("run","-d") ++ args ++ Seq(image) ++ Seq("--network=testnet"),
+        Seq("run","-d") ++ args ++ Seq(image), //++ Seq("--network=testnet"),
         config.timeouts.run,
         if (config.maskDockerRunArgs) Some(Seq("run", "-d", "**ARGUMENTS HIDDEN**", image)) else None)
         .andThen {
