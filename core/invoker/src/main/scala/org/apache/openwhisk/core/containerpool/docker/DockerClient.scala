@@ -142,25 +142,25 @@ class DockerClient(dockerHost: Option[String] = None,
       // adjust docker run to bind to new network
 
       //get host from config
-      val host = dockerHost.map(host => Seq(s"$host")).getOrElse(Seq.empty[String])
+//      val host = dockerHost.map(host => Seq(s"$host")).getOrElse(Seq.empty[String])
 
       //executeProcess on all the hosts
-      host.map(h => {
-          val result = executeProcess(
-            Seq(
-              s"""
-          sshpass -p grp8root ssh -o StrictHostKeyChecking=no root@$h /home/cc/create_throttled_container_network.sh testnet 10Mbit
-          """), Duration.Inf)
-            result.onComplete{
-              case Success(value) => log.info(this, s"REXEC Success: $value")
-              case Failure(e) => log.info(this,s"REXEC Failure: $e")
-            }
-
-            result
-        }
-
-      )
-
+//      host.map(h => {
+//          val result = executeProcess(
+//            Seq(
+//              s"""
+//          sshpass -p grp8root ssh -o StrictHostKeyChecking=no root@$h && bash /home/cc/create_throttled_container_network.sh testnet 10Mbit
+//          """), config.timeouts.run)
+//            result.onComplete{
+//              case Success(value) => log.info(this, s"REXEC Success: $value")
+//              case Failure(e) => log.info(this,s"REXEC Failure: $e")
+//            }
+//
+//            result
+//        }
+//
+//      )
+      log.info(this, s"Running docker run for image $image")
       runCmd(
         Seq("run","-d") ++ args ++ Seq(image) ++ Seq("--network=testnet"),
         config.timeouts.run,
