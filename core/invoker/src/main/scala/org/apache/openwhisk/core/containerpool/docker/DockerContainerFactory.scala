@@ -26,7 +26,7 @@ import org.apache.openwhisk.common.Logging
 import org.apache.openwhisk.common.TransactionId
 import org.apache.openwhisk.core.WhiskConfig
 import org.apache.openwhisk.core.containerpool._
-import org.apache.openwhisk.core.entity.{ByteSize, ExecManifest, ExecutableWhiskAction, InvokerInstanceId}
+import org.apache.openwhisk.core.entity.{ByteSize, ExecManifest, InvokerInstanceId}
 
 import scala.concurrent.duration._
 import java.util.concurrent.TimeoutException
