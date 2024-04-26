@@ -63,7 +63,7 @@ class DockerContainerFactory(instance: InvokerInstanceId,
                                bandwidth: Int
                               )(implicit config: WhiskConfig, logging: Logging): Future[Container] = {
     logging.info(this, s"Creating Container in DCF - Sidharth Logging")
-    logging.info(this, s"TID: $tid, Name: $name, ActionImage: $actionImage, UserProvidedImage: $userProvidedImage, Memory: $memory, CPUShares: $cpuShares")
+    logging.info(this, s"TID: $tid, Name: $name, ActionImage: $actionImage, UserProvidedImage: $userProvidedImage, Memory: $memory, CPUShares: $cpuShares, Bandwidth: $bandwidth")
     val registryConfig =
       ContainerFactory.resolveRegistryConfig(userProvidedImage, runtimesRegistryConfig, userImagesRegistryConfig)
     val image = if (userProvidedImage) Left(actionImage) else Right(actionImage)
