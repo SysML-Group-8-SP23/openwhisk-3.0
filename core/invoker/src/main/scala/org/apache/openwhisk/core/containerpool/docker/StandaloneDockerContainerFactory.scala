@@ -66,7 +66,9 @@ class StandaloneDockerContainerFactory(instance: InvokerInstanceId, parameters: 
                                actionImage: ExecManifest.ImageName,
                                userProvidedImage: Boolean,
                                memory: ByteSize,
-                               cpuShares: Int)(implicit config: WhiskConfig, logging: Logging): Future[Container] = {
+                               cpuShares: Int,
+                               bandwidth: Int
+                              )(implicit config: WhiskConfig, logging: Logging): Future[Container] = {
 
     //For standalone server usage we would also want to pull the OpenWhisk provided image so as to ensure if
     //local setup does not have the image then it pulls it down
@@ -84,7 +86,7 @@ class StandaloneDockerContainerFactory(instance: InvokerInstanceId, parameters: 
         }
       } else Future.successful(true)
 
-    pulled.flatMap(_ => super.createContainer(tid, name, actionImage, userProvidedImage, memory, cpuShares))
+    pulled.flatMap(_ => super.createContainer(tid, name, actionImage, userProvidedImage, memory, cpuShares, bandwidth))
   }
 
   override def init(): Unit = {

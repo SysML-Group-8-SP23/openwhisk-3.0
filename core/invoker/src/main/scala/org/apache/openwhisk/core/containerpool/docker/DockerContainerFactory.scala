@@ -26,13 +26,10 @@ import org.apache.openwhisk.common.Logging
 import org.apache.openwhisk.common.TransactionId
 import org.apache.openwhisk.core.WhiskConfig
 import org.apache.openwhisk.core.containerpool._
-import org.apache.openwhisk.core.entity.ByteSize
-import org.apache.openwhisk.core.entity.ExecManifest
-import org.apache.openwhisk.core.entity.InvokerInstanceId
+import org.apache.openwhisk.core.entity.{ByteSize, ExecManifest, ExecutableWhiskAction, InvokerInstanceId}
 
 import scala.concurrent.duration._
 import java.util.concurrent.TimeoutException
-
 import pureconfig._
 import pureconfig.generic.auto._
 import org.apache.openwhisk.core.ConfigKeys
@@ -42,19 +39,19 @@ case class DockerContainerFactoryConfig(useRunc: Boolean)
 class DockerContainerFactory(instance: InvokerInstanceId,
                              parameters: Map[String, Set[String]],
                              containerArgsConfig: ContainerArgsConfig =
-                               loadConfigOrThrow[ContainerArgsConfig](ConfigKeys.containerArgs),
+                             loadConfigOrThrow[ContainerArgsConfig](ConfigKeys.containerArgs),
                              protected val runtimesRegistryConfig: RuntimesRegistryConfig =
-                               loadConfigOrThrow[RuntimesRegistryConfig](ConfigKeys.runtimesRegistry),
+                             loadConfigOrThrow[RuntimesRegistryConfig](ConfigKeys.runtimesRegistry),
                              protected val userImagesRegistryConfig: RuntimesRegistryConfig =
-                               loadConfigOrThrow[RuntimesRegistryConfig](ConfigKeys.userImagesRegistry),
+                             loadConfigOrThrow[RuntimesRegistryConfig](ConfigKeys.userImagesRegistry),
                              dockerContainerFactoryConfig: DockerContainerFactoryConfig =
-                               loadConfigOrThrow[DockerContainerFactoryConfig](ConfigKeys.dockerContainerFactory))(
-  implicit actorSystem: ActorSystem,
-  ec: ExecutionContext,
-  logging: Logging,
-  docker: DockerApiWithFileAccess,
-  runc: RuncApi)
-    extends ContainerFactory {
+                             loadConfigOrThrow[DockerContainerFactoryConfig](ConfigKeys.dockerContainerFactory))(
+                              implicit actorSystem: ActorSystem,
+                              ec: ExecutionContext,
+                              logging: Logging,
+                              docker: DockerApiWithFileAccess,
+                              runc: RuncApi)
+  extends ContainerFactory {
 
   /** Create a container using docker cli */
   override def createContainer(tid: TransactionId,
@@ -62,8 +59,9 @@ class DockerContainerFactory(instance: InvokerInstanceId,
                                actionImage: ExecManifest.ImageName,
                                userProvidedImage: Boolean,
                                memory: ByteSize,
-                               cpuShares: Int
-                               )(implicit config: WhiskConfig, logging: Logging): Future[Container] = {
+                               cpuShares: Int,
+                               bandwidth: Int
+                              )(implicit config: WhiskConfig, logging: Logging): Future[Container] = {
     logging.info(this, s"Creating Container in DCF - Sidharth Logging")
     logging.info(this, s"TID: $tid, Name: $name, ActionImage: $actionImage, UserProvidedImage: $userProvidedImage, Memory: $memory, CPUShares: $cpuShares")
     val registryConfig =
@@ -121,10 +119,10 @@ class DockerContainerFactory(instance: InvokerInstanceId,
           logging.info(this, s"removing ${containers.size} action containers.")
           val removals = containers.map { id =>
             (if (dockerContainerFactoryConfig.useRunc) {
-               runc.resume(id)
-             } else {
-               docker.unpause(id)
-             })
+              runc.resume(id)
+            } else {
+              docker.unpause(id)
+            })
               .recoverWith {
                 // Ignore resume failures and try to remove anyway
                 case _ => Future.successful(())
@@ -137,6 +135,8 @@ class DockerContainerFactory(instance: InvokerInstanceId,
       }
     Await.ready(cleaning, 30.seconds)
   }
+
+
 }
 
 object DockerContainerFactoryProvider extends ContainerFactoryProvider {
