@@ -1023,7 +1023,7 @@ object ContainerProxy {
                       ImageName,
                       Boolean,
                       ByteSize,
-                      Int,
+                      Int, Int,
                       Option[ExecutableWhiskAction]) => Future[Container],
             ack: ActiveAck,
             store: (TransactionId, WhiskActivation, Boolean, UserContext) => Future[Any],

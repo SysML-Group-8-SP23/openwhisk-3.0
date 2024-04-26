@@ -184,7 +184,7 @@ class FunctionPullingContainerProxy(
             ImageName,
             Boolean,
             ByteSize,
-            Int,
+            Int, Int,
             Option[ExecutableWhiskAction]) => Future[Container],
   entityStore: ArtifactStore[WhiskEntity],
   namespaceBlacklist: NamespaceBlacklist,
@@ -240,6 +240,7 @@ class FunctionPullingContainerProxy(
         job.exec.pull,
         job.memoryLimit,
         poolConfig.cpuShare(10, job.memoryLimit),
+        10, // bandwidth
         None)
         .map(container => PreWarmData(container, job.exec.kind, job.memoryLimit, expires = job.ttl.map(_.fromNow)))
         .pipeTo(self)
@@ -254,6 +255,7 @@ class FunctionPullingContainerProxy(
         job.action.exec.pull,
         job.action.limits.memory.megabytes.MB,
         poolConfig.cpuShare(job.action.limits.cpu.cores, job.action.limits.memory.megabytes.MB),
+        job.action.limits.bandwidth.bandwidth,
         None)
         .andThen {
           case Failure(t) =>
@@ -1260,7 +1262,7 @@ object FunctionPullingContainerProxy {
                       ImageName,
                       Boolean,
                       ByteSize,
-                      Int,
+                      Int, Int,
                       Option[ExecutableWhiskAction]) => Future[Container],
             entityStore: ArtifactStore[WhiskEntity],
             namespaceBlacklist: NamespaceBlacklist,
