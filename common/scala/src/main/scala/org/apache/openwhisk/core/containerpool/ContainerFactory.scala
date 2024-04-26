@@ -135,6 +135,38 @@ trait ContainerFactory {
   def cleanup(): Unit
 }
 
+/**
+ * An abstraction for container creation that supports bandwidth limiting
+ */
+
+trait ThrottledContainerFactory extends ContainerFactory {
+  def createContainerThrottle(
+    tid: TransactionId,
+    name: String,
+    actionImage: ExecManifest.ImageName,
+    userProvidedImage: Boolean,
+    memory: ByteSize,
+    cpuShares: Int,
+    bandwidth: Int,
+    action: Option[ExecutableWhiskAction])(implicit config: WhiskConfig, logging: Logging): Future[Container]
+
+  def createContainer(
+                       tid: TransactionId,
+                       name: String,
+                       actionImage: ExecManifest.ImageName,
+                       userProvidedImage: Boolean,
+                       memory: ByteSize,
+                       cpuShares: Int,
+                       bandwidth: Int,
+                       action: Option[ExecutableWhiskAction])(implicit config: WhiskConfig, logging: Logging): Future[Container] =
+   {
+      createContainerThrottle(tid, name, actionImage, userProvidedImage, memory, cpuShares, bandwidth, action) //create the container throttle before creating the container
+      createContainer(tid, name, actionImage, userProvidedImage, memory, cpuShares, action) // default create container action
+  }
+}
+
+
+
 object ContainerFactory {
 
   /** based on https://github.com/moby/moby/issues/3138 and https://github.com/moby/moby/blob/master/daemon/names/names.go */
