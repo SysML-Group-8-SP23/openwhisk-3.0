@@ -276,8 +276,8 @@ class ServerlessProjectScheduler(
     val stepSize = stepSizes(hash % stepSizes.size)
     logging.warn(this, s"Home index is ${homeInvoker}")
 
-    val (chosen, finalFqn: FullyQualifiedEntityName, memSlots: Int, cpuCores: Int) = if (invokersToUse.nonEmpty) {
-      val (invoker: Option[(InvokerInstanceId, Boolean)], function: FullyQualifiedEntityName, slots: Int, cores: Int) = ServerlessProjectScheduler.schedule(
+    val (chosen, finalFqn: FullyQualifiedEntityName, memSlots: Int, cpuCores: Int, bandwidth: Int) = if (invokersToUse.nonEmpty) {
+      val (invoker: Option[(InvokerInstanceId, Boolean)], function: FullyQualifiedEntityName, slots: Int, cores: Int, bandwidth: Int) = ServerlessProjectScheduler.schedule(
         action.limits.concurrency.maxConcurrent,
         action.fullyQualifiedName(true),
         invokersToUse,
@@ -287,6 +287,7 @@ class ServerlessProjectScheduler(
         schedulingState.invokerBandwidth,
         action.limits.memory.megabytes,
         action.limits.cpu.cores,
+        action.limits.bandwidth.bandwidth,
         homeInvoker,
         stepSize,
         action.fullyQualifiedName(true),
@@ -301,13 +302,13 @@ class ServerlessProjectScheduler(
           MetricEmitter.emitCounterMetric(metric)
         case _ =>
       }
-      (invoker.map(_._1), function, slots, cores)
+      (invoker.map(_._1), function, slots, cores, bandwidth)
     } else {
-      (None, None, None, None)
+      (None, None, None, None, None)
     }
 
     // Create final action limits, action, and message for the invocation we want to run
-    val finalLimits = ActionLimits(action.limits.timeout, MemoryLimit(memSlots.MB), CpuLimit(cpuCores), action.limits.logs, action.limits.concurrency)
+    val finalLimits = ActionLimits(action.limits.timeout, MemoryLimit(memSlots.MB), CpuLimit(cpuCores), BandwidthLimit(bandwidth), action.limits.logs, action.limits.concurrency)
     val finalAction = ExecutableWhiskActionMetaData(action.namespace, 
                                                     finalFqn.name, 
                                                     action.exec, 
@@ -343,11 +344,13 @@ class ServerlessProjectScheduler(
         val memoryLimitInfo = if (memoryLimit == MemoryLimit()) { "std" } else { "non-std" }
         val cpuLimit = finalAction.limits.cpu
         val cpuLimitInfo = if (cpuLimit == CpuLimit()) { "std" } else { "non-std" }
+        val bandwidthLimit = finalAction.limits.bandwidth
+        val bandwidthLimitInfo = if (bandwidthLimit == BandwidthLimit()) { "std" } else { "non-std" }
         val timeLimit = finalAction.limits.timeout
         val timeLimitInfo = if (timeLimit == TimeLimit()) { "std" } else { "non-std" }
         logging.info(
           this,
-          s"scheduled activation ${finalMsg.activationId}, action '${finalMsg.action.asString}' ($actionType), ns '${finalMsg.user.namespace.name.asString}', mem limit ${memoryLimit.megabytes} MB (${memoryLimitInfo}), cpu limit ${cpuLimit.cores} cores (${cpuLimitInfo}), time limit ${timeLimit.duration.toMillis} ms (${timeLimitInfo}) to ${invoker}")        
+          s"scheduled activation ${finalMsg.activationId}, action '${finalMsg.action.asString}' ($actionType), ns '${finalMsg.user.namespace.name.asString}', mem limit ${memoryLimit.megabytes} MB (${memoryLimitInfo}), cpu limit ${cpuLimit.cores} cores (${cpuLimitInfo}), bandwidth limit ${bandwidthLimit.bandwidth} mbit/s (${bandwidthLimitInfo}), time limit ${timeLimit.duration.toMillis} ms (${timeLimitInfo}) to ${invoker}")        
 
         // Spin up and initialize a warm, right-size container in the background for the action beacuse we scheduled the invocation to a larger warm container
         if (finalAction.limits.cpu.cores > action.limits.cpu.cores || finalAction.limits.memory.megabytes > action.limits.memory.megabytes) {        
@@ -399,6 +402,7 @@ class ServerlessProjectScheduler(
         schedulingState.invokerBandwidth
         .lift(invoker.toInt)
         .foreach(_.releaseConcurrent(entry.fullyQualifiedEntityName, entry.maxConcurrent, entry.fullyQualifiedEntityName.toString.split("_")(3).toInt))
+        //.foreach(_.releaseConcurrent(entry.fullyQualifiedEntityName, entry.maxConcurrent, entry.bandwidthLimit.toInt))
       logging.warn(this, s"Lachesis - releasing slots or cores for '${entry.id}'")
       // Completed invocation was a background activation to create perfect size warm container by the scheduler
       case _ => logging.warn(this, s"Lachesis - not releasing slots or cores, background activation '${entry.id}'")
@@ -471,13 +475,13 @@ object ServerlessProjectScheduler extends LoadBalancerProvider {
     maxConcurrent: Int,
     slots: Int,
     cores: Int,
-    mbps: Int)(implicit logging: Logging): Boolean = {
+    bandwidth: Int)(implicit logging: Logging): Boolean = {
     var returnVal = false
     this.synchronized {
       if (invoker.status.isUsable) {
         if (dispatchedMem(invoker.id.toInt).tryAcquireConcurrent(fqn, maxConcurrent, slots)) {
           if (dispatchedCpu(invoker.id.toInt).tryAcquireConcurrent(fqn, maxConcurrent, cores)) {
-            if (dispatchedBandwidth(invoker.id.toInt).tryAcquireConcurrent(fqn, maxConcurrent, mbps)) {
+            if (dispatchedBandwidth(invoker.id.toInt).tryAcquireConcurrent(fqn, maxConcurrent, bandwidth)) {
               returnVal = true
             // Couldn't get requested cores, so release memory slots obtained
             } else {
@@ -522,6 +526,7 @@ object ServerlessProjectScheduler extends LoadBalancerProvider {
     dispatchedBandwidth: IndexedSeq[NestedSemaphore[FullyQualifiedEntityName]],
     slots: Int,
     cores: Int,
+    bandwidth: Int,
     index: Int,
     step: Int,
     chosenFqn: FullyQualifiedEntityName,
@@ -531,11 +536,13 @@ object ServerlessProjectScheduler extends LoadBalancerProvider {
     chosenDifferenceCpu: Int = 100,
     chosenDifferenceMem: Int = 10000,
     chosenDifferenceBandwidth: Int = 1000,
-    finalRule: Int = -1)(implicit logging: Logging, transId: TransactionId): (Option[(InvokerInstanceId, Boolean)], FullyQualifiedEntityName, Int, Int) = {
+    finalRule: Int = -1)(implicit logging: Logging, transId: TransactionId): (Option[(InvokerInstanceId, Boolean)], FullyQualifiedEntityName, Int, Int, Int) = {
     val numInvokers = invokers.size
           
     
-    logging.warn(this, s"Lachesis - schedule called: '${cores}' and '${slots}'")
+    logging.warn(this, s"Lachesis - schedule called: '${cores}' cores and '${slots} slots'")
+    
+    logging.warn(this, s"Lachesis - schedule called: '${bandwidth} bandwidth'")
     logging.warn(this, s"Lachesis - schedule called: '${fqn}'")
     val currFqnMbps: Int = fqn.name.toString.split("_")(3).toInt
     if (numInvokers > 0) {
@@ -548,7 +555,7 @@ object ServerlessProjectScheduler extends LoadBalancerProvider {
           val finalSlots = chosenFqn.name.toString.split("_")(2).toInt
           val finalBandwidth = chosenFqn.name.toString.split("_")(3).toInt
           logging.warn(this, s"Lachesis launching: activation_id ${activationId} in rule ${finalRule} index ${chosenIndex} original name ${fqn.name} final name ${chosenFqn.name}")
-          (Some(invoker.id, false), chosenFqn, finalSlots, finalCores)
+          (Some(invoker.id, false), chosenFqn, finalSlots, finalCores, finalBandwidth)
         // Case #6: None of the invokers have any warm containers or space for new containers, choosen one at random
         } else {
           logging.warn(this, s"Lachesis launching: activation_id ${activationId} in case 5 it was rejected")
@@ -559,11 +566,11 @@ object ServerlessProjectScheduler extends LoadBalancerProvider {
             val random = healthyInvokers(ThreadLocalRandom.current().nextInt(healthyInvokers.size)).id
             dispatchedMem(random.toInt).forceAcquireConcurrent(fqn, maxConcurrent, slots)
             dispatchedCpu(random.toInt).forceAcquireConcurrent(fqn, maxConcurrent, cores)
-            dispatchedBandwidth(random.toInt).forceAcquireConcurrent(fqn, maxConcurrent, currFqnMbps)
+            dispatchedBandwidth(random.toInt).forceAcquireConcurrent(fqn, maxConcurrent, bandwidth)
             logging.warn(this, s"system is overloaded. Chose invoker${random.toInt} by random assignment.")
-            (Some(random, true), fqn, slots, cores)
+            (Some(random, true), fqn, slots, cores, bandwidth)
           } else {
-            (None, fqn, slots, cores)
+            (None, fqn, slots, cores, bandwidth)
           }
         }
       } else {
@@ -592,23 +599,23 @@ object ServerlessProjectScheduler extends LoadBalancerProvider {
               val mapFqnMbps: Int = mapFqn.name.toString.split("_")(3).toInt
               val currFqnName: String = fqn.name.toString.split("_")(0)
               logging.warn(this, s"Lachesis - container bandwidth: '${mapFqnMbps}'")
-              logging.warn(this, s"Lachesis - function bandwidth: '${currFqnMbps}'")
+              logging.warn(this, s"Lachesis - function bandwidth: '${bandwidth}'")
 
-              if ((mapFqnName == currFqnName) && (Math.abs(mapFqnMbps - currFqnMbps) <= 200)) {
+              if ((mapFqnName == currFqnName) && (Math.abs(mapFqnMbps - bandwidth) <= 200)) {
                 val diffCpu = mapFqnCores - cores
                 val diffMem = mapFqnMem - slots
-                val diffBandwidth = mapFqnMbps - currFqnMbps
+                val diffBandwidth = mapFqnMbps - bandwidth
                 logging.warn(this, s"Lachesis - max: '${mapFqnCores}' and '${mapFqnMem}'")
                 logging.warn(this, s"Lachesis - diff: '${diffCpu}' and '${diffMem}' and '${diffBandwidth}'")
                 // Case #1: Found warm container that is perfect size and invoker has space
                 if (diffCpu == 0 && diffMem == 0 && count > 0) {
                   // Check if we can reserve resources on this invoker for the current container we are considering
-                  if (getResources(invoker, dispatchedMem, dispatchedCpu, dispatchedBandwidth, mapFqn, maxConcurrent, slots, cores, currFqnMbps)) {
+                  if (getResources(invoker, dispatchedMem, dispatchedCpu, dispatchedBandwidth, mapFqn, maxConcurrent, slots, cores, bandwidth)) {
                     // Check if we reserved resources on this invoker or a previous invoker, if so release those resources
                     if (bestIndex != -1) {
                       dispatchedMem(invokers(bestIndex).id.toInt).releaseConcurrent(bestFqn, maxConcurrent, bestFqn.name.toString.split("_")(2).toInt)
                       dispatchedCpu(invokers(bestIndex).id.toInt).releaseConcurrent(bestFqn, maxConcurrent, cores)
-                      dispatchedCpu(invokers(bestIndex).id.toInt).releaseConcurrent(bestFqn, maxConcurrent, currFqnMbps)
+                      dispatchedCpu(invokers(bestIndex).id.toInt).releaseConcurrent(bestFqn, maxConcurrent, bandwidth)
                     }
                     bestIndex = index
                     bestDiffCpu = 0
@@ -622,12 +629,12 @@ object ServerlessProjectScheduler extends LoadBalancerProvider {
                 // Case #2: Found a warm container that is closest in memory and has enough cores compared to the requested size
                 else if (diffCpu >= 0 && diffMem >= 0 && diffMem < bestDiffMem && count > 0) {
                   // Check if we can reserve resources on this invoker for the current container we are considering
-                  if (getResources(invoker, dispatchedMem, dispatchedCpu, dispatchedBandwidth, mapFqn, maxConcurrent, mapFqnMem, cores, currFqnMbps)) {
+                  if (getResources(invoker, dispatchedMem, dispatchedCpu, dispatchedBandwidth, mapFqn, maxConcurrent, mapFqnMem, cores, bandwidth)) {
                     // Check if we reserved resources on this invoker or a previous invoker, if so release those resources
                     if (bestIndex != -1) {
                       dispatchedMem(invokers(bestIndex).id.toInt).releaseConcurrent(bestFqn, maxConcurrent, bestFqn.name.toString.split("_")(2).toInt)
                       dispatchedCpu(invokers(bestIndex).id.toInt).releaseConcurrent(bestFqn, maxConcurrent, cores)
-                      dispatchedCpu(invokers(bestIndex).id.toInt).releaseConcurrent(bestFqn, maxConcurrent, currFqnMbps)
+                      dispatchedCpu(invokers(bestIndex).id.toInt).releaseConcurrent(bestFqn, maxConcurrent, bandwidth)
                     } 
                     bestIndex = index
                     bestDiffCpu = diffCpu
@@ -641,12 +648,12 @@ object ServerlessProjectScheduler extends LoadBalancerProvider {
                 // Case #3: Found a container equal in memory to the closest we've seen, so see if it's closer in cores
                 else if (diffMem >= 0 && diffMem == bestDiffMem && count > 0 && diffCpu >= 0 && diffCpu < bestDiffCpu) {
                   // Check if we can reserve resources on this invoker for the current container we are considering
-                  if (getResources(invoker, dispatchedMem, dispatchedCpu, dispatchedBandwidth, mapFqn, maxConcurrent, mapFqnMem, cores, currFqnMbps)) {
+                  if (getResources(invoker, dispatchedMem, dispatchedCpu, dispatchedBandwidth, mapFqn, maxConcurrent, mapFqnMem, cores, bandwidth)) {
                     // Check if we reserved resources on this invoker or a previous invoker, if so release those resources
                     if (bestIndex != -1) {
                       dispatchedMem(invokers(bestIndex).id.toInt).releaseConcurrent(bestFqn, maxConcurrent, bestFqn.name.toString.split("_")(2).toInt)
                       dispatchedCpu(invokers(bestIndex).id.toInt).releaseConcurrent(bestFqn, maxConcurrent, cores)
-                      dispatchedCpu(invokers(bestIndex).id.toInt).releaseConcurrent(bestFqn, maxConcurrent, currFqnMbps)
+                      dispatchedCpu(invokers(bestIndex).id.toInt).releaseConcurrent(bestFqn, maxConcurrent, bandwidth)
                     } 
                     bestIndex = index
                     bestDiffCpu = diffCpu
@@ -661,22 +668,22 @@ object ServerlessProjectScheduler extends LoadBalancerProvider {
           }
 
           // Case #4: Haven't found an invoker with perfect or larger warm container, so check if current invoker has space for requested allocation
-          if (bestIndex == -1 && getResources(invoker, dispatchedMem, dispatchedCpu, dispatchedBandwidth, fqn, maxConcurrent, slots, cores, currFqnMbps)) {
+          if (bestIndex == -1 && getResources(invoker, dispatchedMem, dispatchedCpu, dispatchedBandwidth, fqn, maxConcurrent, slots, cores, bandwidth)) {
             bestIndex = index
             currentRule = 4
           }
         } else {
           // Case #5: Haven't found an invoker with a perfect or larger warm container, so check if current invoker has space for requested allocation
-          if (bestIndex == -1 && getResources(invoker, dispatchedMem, dispatchedCpu, dispatchedBandwidth, fqn, maxConcurrent, slots, cores, currFqnMbps)) {
+          if (bestIndex == -1 && getResources(invoker, dispatchedMem, dispatchedCpu, dispatchedBandwidth, fqn, maxConcurrent, slots, cores, bandwidth)) {
             bestIndex = index
             currentRule = 5
           }
         }
         val newIndex = (index + step) % numInvokers
-        schedule(maxConcurrent, fqn, invokers, containerMap, dispatchedMem, dispatchedCpu, dispatchedBandwidth, slots, cores, newIndex, step, bestFqn, activationId, stepsDone + 1, bestIndex, bestDiffCpu, bestDiffMem, bestDiffBandwidth, currentRule)
+        schedule(maxConcurrent, fqn, invokers, containerMap, dispatchedMem, dispatchedCpu, dispatchedBandwidth, slots, cores, bandwidth, newIndex, step, bestFqn, activationId, stepsDone + 1, bestIndex, bestDiffCpu, bestDiffMem, bestDiffBandwidth, currentRule)
       }  
     } else {
-      (None, fqn, slots, cores)
+      (None, fqn, slots, cores, bandwidth)
     }
   }
 }
