@@ -31,10 +31,12 @@ import scala.concurrent.{Await, Future}
 import scala.util.Failure
 import scala.util.Success
 import scala.util.Try
-import akka.event.Logging.{ErrorLevel, InfoLevel}
+//import akka.event.Logging.{ErrorLevel, InfoLevel}
 import pureconfig._
 import pureconfig.generic.auto._
-import org.apache.openwhisk.common.{Logging, LoggingMarkers, TransactionId}
+//import org.apache.openwhisk.common.{Logging, LoggingMarkers, TransactionId}
+import org.apache.openwhisk.common.Logging
+import org.apache.openwhisk.common.TransactionId
 import org.apache.openwhisk.core.ConfigKeys
 import org.apache.openwhisk.core.containerpool.ContainerId
 import org.apache.openwhisk.core.containerpool.ContainerAddress
