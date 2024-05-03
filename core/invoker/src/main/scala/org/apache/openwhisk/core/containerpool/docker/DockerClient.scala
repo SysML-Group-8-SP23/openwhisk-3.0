@@ -137,32 +137,39 @@ class DockerClient(dockerHost: Option[String] = None,
       }
     }.flatMap { _ =>
       // Iff the semaphore was acquired successfully
-      runCmd(
-        Seq("run", "-d") ++ args ++ Seq(image),
-        config.timeouts.run,
-        if (config.maskDockerRunArgs) Some(Seq("run", "-d", "**ARGUMENTS HIDDEN**", image)) else None)
-        .andThen {
+      // TODO: Create docker network, apply CINEMA scripts to new network, then run container in that network
+
+      val networkCreationFuture = runCmd(Seq("network create testnet"), config.timeouts.run)
+      val containerCreationFuture = networkCreationFuture.andThen({ //do whether or not it throws exception for rn
+        case _ => {
+          runCmd(
+            Seq("run --network testnet", "-d") ++ args ++ Seq(image),
+            config.timeouts.run,
+            if (config.maskDockerRunArgs) Some(Seq("run", "-d", "**ARGUMENTS HIDDEN**", image)) else None)
+        }
+      })
+      containerCreationFuture.andThen {
           // Release the semaphore as quick as possible regardless of the runCmd() result
-          case _ => runSemaphore.release()
-        }
-        .map(ContainerId.apply)
-        .recoverWith {
-          // https://docs.docker.com/v1.12/engine/reference/run/#/exit-status
-          // Exit status 125 means an error reported by the Docker daemon.
-          // Examples:
-          // - Unrecognized option specified
-          // - Not enough disk space
-          // Exit status 127 means an error that container command cannot be found.
-          // Examples:
-          // - executable file not found in $PATH": unknown
-          case pre: ProcessUnsuccessfulException
-              if pre.exitStatus == ExitStatus(125) || pre.exitStatus == ExitStatus(127) =>
-            Future.failed(
-              DockerContainerId
-                .parse(pre.stdout)
-                .map(BrokenDockerContainer(_, s"Broken container: ${pre.getMessage}", Some(pre.exitStatus.statusValue)))
-                .getOrElse(pre))
-        }
+        case _ => runSemaphore.release()
+      }
+      .map(ContainerId.apply)
+      .recoverWith {
+        // https://docs.docker.com/v1.12/engine/reference/run/#/exit-status
+        // Exit status 125 means an error reported by the Docker daemon.
+        // Examples:
+        // - Unrecognized option specified
+        // - Not enough disk space
+        // Exit status 127 means an error that container command cannot be found.
+        // Examples:
+        // - executable file not found in $PATH": unknown
+        case pre: ProcessUnsuccessfulException
+            if pre.exitStatus == ExitStatus(125) || pre.exitStatus == ExitStatus(127) =>
+          Future.failed(
+            DockerContainerId
+              .parse(pre.stdout)
+              .map(BrokenDockerContainer(_, s"Broken container: ${pre.getMessage}", Some(pre.exitStatus.statusValue)))
+              .getOrElse(pre))
+      }
     }
   }
 

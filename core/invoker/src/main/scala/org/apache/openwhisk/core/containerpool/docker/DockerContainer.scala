@@ -114,8 +114,9 @@ object DockerContainer {
       s"${memory.toMB}m",
       "--memory-swap",
       s"${memory.toMB}m",
-      "--network",
-      network) ++
+//      "--network",
+//      network
+    ) ++
       environmentArgs ++
       dnsServers.flatMap(d => Seq("--dns", d)) ++
       dnsSearch.flatMap(d => Seq("--dns-search", d)) ++
