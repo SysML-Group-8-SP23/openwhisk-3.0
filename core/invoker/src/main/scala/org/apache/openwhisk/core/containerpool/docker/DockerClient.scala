@@ -206,16 +206,21 @@ class DockerClient(dockerHost: Option[String] = None,
   protected def runCmd(args: Seq[String], timeout: Duration, maskedArgs: Option[Seq[String]] = None)(
     implicit transid: TransactionId): Future[String] = {
     val cmd = dockerCmd ++ args
-    val start = transid.started(
-      this,
-      LoggingMarkers.INVOKER_DOCKER_CMD(args.head),
-      s"running ${maskedArgs.map(maskedArgs => (dockerCmd ++ maskedArgs).mkString(" ")).getOrElse(cmd.mkString(" "))} (timeout: $timeout)",
-      logLevel = InfoLevel)
+    log.info(this,cmd.mkString(" "))
+//    val start = transid.started(
+//      this,
+//      LoggingMarkers.INVOKER_DOCKER_CMD(args.head),
+//      s"running ${maskedArgs.map(maskedArgs => (dockerCmd ++ maskedArgs).mkString(" ")).getOrElse(cmd.mkString(" "))} (timeout: $timeout)",
+//      logLevel = InfoLevel)
+    log.info(this, s"running ${maskedArgs.map(maskedArgs => (dockerCmd ++ maskedArgs).mkString(" ")).getOrElse(cmd.mkString(" "))} (timeout: $timeout)")
     executeProcess(cmd, timeout).andThen {
-      case Success(success) => transid.finished(this, start, s"${success}")
+//      case Success(success) => transid.finished(this, start, s"CMD RETURN: ${success}")
+      case Success(success) => log.info(this, s"CMD RETURN: ${success}")
       case Failure(pte: ProcessTimeoutException) =>
-        transid.failed(this, start, pte.getMessage, ErrorLevel)
-      case Failure(t) => transid.failed(this, start, t.getMessage, ErrorLevel)
+//        transid.failed(this, start, pte.getMessage, ErrorLevel)
+          log.error(this, s"CMD FAILURE: ${pte.getMessage}")
+//      case Failure(t) => transid.failed(this, start, t.getMessage, ErrorLevel)
+      case Failure(t) => log.error(this, s"CMD FAILURE: ${t.getMessage}")
     }
   }
 }
