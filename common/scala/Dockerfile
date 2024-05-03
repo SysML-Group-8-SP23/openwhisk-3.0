@@ -59,9 +59,9 @@ ENV LC_ALL en_US.UTF-8
 RUN sudo apt-update
 
 #use cloudfront + https for packages
-RUN echo 'deb https://cloudfront.debian.net/debian/ stable main\n\
-deb https://cloudfront.debian.net/debian-security/ stable/updates main'\
-> /etc/apt/sources.list
+#RUN echo 'deb https://cloudfront.debian.net/debian/ stable main\n\
+#deb https://cloudfront.debian.net/debian-security/ stable/updates main'\
+#> /etc/apt/sources.list
 
 RUN apt-get -y install --no-install-recommends \
       sed curl bash && apt-get -y update && apt-get -y upgrade
