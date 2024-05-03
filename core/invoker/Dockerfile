@@ -79,7 +79,7 @@ ENV DOCKER_VERSION=18.06.3
 RUN apt-get -y install openssl
 
 # Uncomment to fetch latest version of docker instead:
-RUN #wget -qO- https://get.docker.com | sh
+#RUN wget -qO- https://get.docker.com | sh
 # Install docker client
 RUN curl -sSL -o docker-${DOCKER_VERSION}.tgz https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_VERSION}.tgz #&& \
 #    tar --strip-components 1 -xvzf docker-${DOCKER_VERSION}.tgz -C /usr/bin docker/docker && \
