@@ -81,6 +81,25 @@ object DockerContainer {
       case (key, value) => Seq("-e", s"$key=$value")
     }
 
+    log.info(this, s"Creating Container in DockerContainer - Sidharth Logging")
+    log.info(
+      this,
+      s"TID: $tid, " +
+        s"Image: $image, " +
+        s"RegistryConfig: $registryConfig, " +
+        s"Memory: $memory, " +
+        s"CPUShares: $cpuShares, " +
+        s"Environment: $environment, " +
+        s"Network: $network, " +
+        s"DNS Servers: $dnsServers, " +
+        s"DNS Search: $dnsSearch, " +
+        s"DNS Options: $dnsOptions, " +
+        s"Name: $name, " +
+        s"UseRunc: $useRunc, " +
+        s"DockerRunParameters: $dockerRunParameters"
+    )
+
+
     val params = dockerRunParameters.flatMap {
       case (key, valueList) => valueList.toList.flatMap(Seq(key, _))
     }
