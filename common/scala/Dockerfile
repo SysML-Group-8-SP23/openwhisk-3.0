@@ -56,7 +56,7 @@ ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US:en
 ENV LC_ALL en_US.UTF-8
 
-RUN sudo apt-update
+RUN apt update
 
 #use cloudfront + https for packages
 #RUN echo 'deb https://cloudfront.debian.net/debian/ stable main\n\
