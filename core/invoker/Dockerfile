@@ -77,6 +77,8 @@ ENV DOCKER_VERSION=18.06.3-ce
 
 
 RUN apt-get -y install openssl
+RUN apt -y install iproute2
+RUN apt -y install net-tools
 
 # Uncomment to fetch latest version of docker instead:
 #RUN wget -qO- https://get.docker.com | sh
