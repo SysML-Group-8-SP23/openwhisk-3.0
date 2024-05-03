@@ -139,7 +139,8 @@ class DockerClient(dockerHost: Option[String] = None,
       // Iff the semaphore was acquired successfully
       // TODO: Create docker network, apply CINEMA scripts to new network, then run container in that network
 
-      val networkCreationFuture = runCmd(Seq("network create testnet"), config.timeouts.run)
+//      val networkCreationFuture = runCmd(Seq("network create testnet"), config.timeouts.run)
+      val networkCreationFuture = Future[String]("testnet") //hardcoded for now
       val containerCreationFuture = networkCreationFuture.andThen({ //do whether or not it throws exception for rn
         case _ => {
           runCmd(
