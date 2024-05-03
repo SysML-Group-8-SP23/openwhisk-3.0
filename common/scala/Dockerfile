@@ -50,7 +50,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-FROM adoptopenjdk/openjdk11-openj9:x86_64-debian-jdk-11.0.8_10_openj9-0.21.0-slim
+FROM adoptopenjdk/openjdk11-openj9:x86_64-ubuntu-jdk-11.0.11_9_openj9-0.26.0
+
+
 
 ENV LANG en_US.UTF-8
 ENV LANGUAGE en_US:en
