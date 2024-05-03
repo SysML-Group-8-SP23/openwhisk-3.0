@@ -70,7 +70,7 @@ FROM scala
 
 ENV UID=1001
 ENV NOT_ROOT_USER=owuser
-ENV DOCKER_VERSION=18.06.3
+ENV DOCKER_VERSION=18.06.3-ce
 # If you change the docker version here, it has implications on invoker runc support.
 # Docker server version and the invoker docker version must be the same to enable runc usage.
 # If this cannot be guaranteed, set `invoker_use_runc: false` in the ansible env.
