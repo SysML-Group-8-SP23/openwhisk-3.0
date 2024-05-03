@@ -79,6 +79,7 @@ ENV DOCKER_VERSION=18.06.3-ce
 RUN apt-get -y install openssl
 RUN apt -y install iproute2
 RUN apt -y install net-tools
+RUN apt -y install netperf
 
 # Uncomment to fetch latest version of docker instead:
 #RUN wget -qO- https://get.docker.com | sh
@@ -92,7 +93,7 @@ RUN curl -sSL -o docker-${DOCKER_VERSION}.tgz https://download.docker.com/linux/
 
 ADD build/distributions/invoker.tar ./
 
-COPY init.sh /
+COPY init.sh /gi
 RUN chmod +x init.sh
 
 # When running the invoker as a non-root user this has implications on the standard directory where runc stores its data.
