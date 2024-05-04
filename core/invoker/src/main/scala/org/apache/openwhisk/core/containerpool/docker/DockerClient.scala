@@ -223,26 +223,25 @@ class DockerClient(dockerHost: Option[String] = None,
   def rm(id: ContainerId)(implicit transid: TransactionId): Future[Unit] = {
     //TODO: Use docker inspect to find the network this is attached to, and if it is not "bridge" remove it when
     // removing the container
-    executeProcess(dockerCmd ++ Seq("inspect", "--format", "{{.NetworkSettings.Networks}}", id.asString), config.timeouts.inspect).andThen {
-      case Success(networks) =>
-        log.info(this, s"Networks ${id.asString}: ${networks}")
-        //networks follows this format: "map[<networkName>:hexcode]", isolate the network name
-        val networkName: String = networks.split("\\[")(1).split(":")(0)
 
-        log.info(this, s"Container attached to network: ${networkName}")
-        if (networkName != "bridge") {
-          runCmd(
-            Seq("network", "rm", networkName),
-            config.timeouts.run
-          ).andThen {
-            case Success(_) => log.info(this, s"Network ${networkName} removed")
-            case Failure(e) => log.error(this, s"Failed to remove network ${networkName}: ${e.getMessage}")
+    //1. find network name
+    //2. remove container
+    //3. remove network if not bridge
+    executeProcess(dockerCmd ++ Seq("inspect", id.asString, "--format", "{{.NetworkSettings.Networks}}"), config.timeouts.inspect)
+      .flatMap { networks =>
+        val networkName: String = networks.split("\\[")(1).split(":")(0)
+        log.info(this, s"Network Name: ${networkName}")
+        runCmd(Seq("rm", "-f", id.asString), config.timeouts.rm).flatMap { _ =>
+          if (networkName != "bridge") {
+            runCmd(Seq("network", "rm", networkName), config.timeouts.rm).andThen{
+              case Success(_) => log.info(this, s"Network ${networkName} removed")
+              case Failure(e) => log.error(this, s"Failed to remove network ${networkName}: ${e.getMessage}")
+            }.map(_ => ())
+          } else {
+            Future.successful(())
           }
         }
-      case Failure(e) => log.error(this, s"Failed to get network name for container ${id.asString}: ${e.getMessage}")
-    }.flatMap(
-      _ => runCmd(Seq("rm", "-f", id.asString), config.timeouts.rm)
-    ).map(_ => ())
+      }
   }
 
   def ps(filters: Seq[(String, String)] = Seq.empty, all: Boolean = false)(
