@@ -217,6 +217,7 @@ class DockerClient(dockerHost: Option[String] = None,
     // removing the container
     executeProcess(dockerCmd ++ Seq("inspect", "--format", "{{.NetworkSettings.Networks}}", id.asString), config.timeouts.inspect).andThen {
       case Success(networks) =>
+        log.info(this, s"Networks ${id.asString}: ${networks}")
         val networkName = networks.linesIterator.toSeq.head.split(",")(0).split(":")(0)
         log.info(this, s"Container attached to network: ${networkName}")
         if (networkName != "bridge") {
