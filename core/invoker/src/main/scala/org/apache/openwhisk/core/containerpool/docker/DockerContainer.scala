@@ -166,7 +166,8 @@ object DockerContainer {
             Future.failed(BlackboxStartupError(Messages.imagePullError(imageToUse)))
           }
       }
-      ip <- docker.inspectIPAddress(id, network).recoverWith {
+//      ip <- docker.inspectIPAddress(id, network).recoverWith {
+      ip <- docker.inspectIPAddress(id, "testnet").recoverWith {
         // remove the container immediately if inspect failed as
         // we cannot recover that case automatically
         case _ =>
