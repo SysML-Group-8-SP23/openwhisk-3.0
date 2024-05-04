@@ -163,10 +163,8 @@ class DockerClient(dockerHost: Option[String] = None,
           log.error(this, s"Failed to create network ${networkName}, using bridge network")
           Future[String]("bridge")
       }
+      //TODO: Actually add bridge network fallback here
 
-
-
-//      val networkCreationFuture = Future[String]("testnet") //hardcoded for now
       val containerCreationFuture = networkCreateFuture.flatMap({ //do whether or not it throws exception for rn
          _ => {
           runCmd(
@@ -214,8 +212,11 @@ class DockerClient(dockerHost: Option[String] = None,
   def unpause(id: ContainerId)(implicit transid: TransactionId): Future[Unit] =
     runCmd(Seq("unpause", id.asString), config.timeouts.unpause).map(_ => ())
 
-  def rm(id: ContainerId)(implicit transid: TransactionId): Future[Unit] =
+  def rm(id: ContainerId)(implicit transid: TransactionId): Future[Unit] = {
+    //TODO: Use docker inspect to find the network this is attached to, and if it is not "bridge" remove it when
+    // removing the container
     runCmd(Seq("rm", "-f", id.asString), config.timeouts.rm).map(_ => ())
+  }
 
   def ps(filters: Seq[(String, String)] = Seq.empty, all: Boolean = false)(
     implicit transid: TransactionId): Future[Seq[ContainerId]] = {
