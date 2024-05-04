@@ -145,6 +145,7 @@ class DockerClient(dockerHost: Option[String] = None,
 
       // get network name
       var networkName = getNetworkName(args)
+      var runArgs = args
       log.info(this,s"Parsed Network Name: ${networkName}")
 //      networkName = "testnet"
       log.info(this,s"Actually used Network Name: ${networkName}")
@@ -158,17 +159,24 @@ class DockerClient(dockerHost: Option[String] = None,
           log.info(this, s"Network created: ${networkName}")
           Future[String](networkName)
         }
-      ).recoverWith { //if it fails, return a string future with "bridge" as the network name
+      ).recoverWith {
         case _ =>
           log.error(this, s"Failed to create network ${networkName}, using bridge network")
-          Future[String]("bridge")
+          //iterate over runArgs in pairs
+          //if the first element is "--network" change the second element to "bridge" in place
+            runArgs = runArgs.sliding(2).flatMap {
+              case Seq("--network", _) => Seq("--network", "bridge")
+              case other => other
+            }.toSeq
+            log.info(this, s"New runArgs: ${runArgs}")
+            Future[String]("bridge")
       }
       //TODO: Actually add bridge network fallback here
 
       val containerCreationFuture = networkCreateFuture.flatMap({ //do whether or not it throws exception for rn
          _ => {
           runCmd(
-            Seq("run", "-d") ++ args ++ Seq(image),
+            Seq("run", "-d") ++ runArgs ++ Seq(image),
             config.timeouts.run,
             if (config.maskDockerRunArgs) Some(Seq("run", "-d", "**ARGUMENTS sHIDDEN**", image)) else None)
         }
