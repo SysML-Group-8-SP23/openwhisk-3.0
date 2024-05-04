@@ -218,7 +218,9 @@ class DockerClient(dockerHost: Option[String] = None,
     executeProcess(dockerCmd ++ Seq("inspect", "--format", "{{.NetworkSettings.Networks}}", id.asString), config.timeouts.inspect).andThen {
       case Success(networks) =>
         log.info(this, s"Networks ${id.asString}: ${networks}")
-        val networkName = networks.linesIterator.toSeq.head.split(",")(0).split(":")(0)
+        //networks follows this format: "map[<networkName>:hexcode]", isolate the network name
+        val networkName: String = networks.split("\\[")(1).split(":")(0)
+
         log.info(this, s"Container attached to network: ${networkName}")
         if (networkName != "bridge") {
           runCmd(
