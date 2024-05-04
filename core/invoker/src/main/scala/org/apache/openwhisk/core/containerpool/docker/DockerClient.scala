@@ -215,7 +215,23 @@ class DockerClient(dockerHost: Option[String] = None,
   def rm(id: ContainerId)(implicit transid: TransactionId): Future[Unit] = {
     //TODO: Use docker inspect to find the network this is attached to, and if it is not "bridge" remove it when
     // removing the container
-    runCmd(Seq("rm", "-f", id.asString), config.timeouts.rm).map(_ => ())
+    executeProcess(dockerCmd ++ Seq("inspect", "--format", "{{.NetworkSettings.Networks}}", id.asString), config.timeouts.inspect).andThen {
+      case Success(networks) =>
+        val networkName = networks.linesIterator.toSeq.head.split(",")(0).split(":")(0)
+        log.info(this, s"Container attached to network: ${networkName}")
+        if (networkName != "bridge") {
+          runCmd(
+            Seq("network", "rm", networkName),
+            config.timeouts.run
+          ).andThen {
+            case Success(_) => log.info(this, s"Network ${networkName} removed")
+            case Failure(e) => log.error(this, s"Failed to remove network ${networkName}: ${e.getMessage}")
+          }
+        }
+      case Failure(e) => log.error(this, s"Failed to get network name for container ${id.asString}: ${e.getMessage}")
+    }.flatMap(
+      _ => runCmd(Seq("rm", "-f", id.asString), config.timeouts.rm)
+    ).map(_ => ())
   }
 
   def ps(filters: Seq[(String, String)] = Seq.empty, all: Boolean = false)(
