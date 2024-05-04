@@ -146,8 +146,8 @@ class DockerClient(dockerHost: Option[String] = None,
       // get network name
       var networkName = getNetworkName(args)
       log.info(this,s"Parsed Network Name: ${networkName}")
-      networkName = "testnet"
-      log.info(this,s"Hardcoded Network Name: ${networkName}")
+//      networkName = "testnet"
+      log.info(this,s"Actually used Network Name: ${networkName}")
 
       //create the network
       val networkCreateFuture = runCmd(
