@@ -130,6 +130,7 @@ class DockerClient(dockerHost: Option[String] = None,
   private def getNetworkName(args: Seq[String]): String = {
     args.sliding(2).collectFirst({ case Seq("--network", network) => network }).getOrElse("bridge")
   }
+  private var networkCounter = 0
   def run(image: String, args: Seq[String] = Seq.empty[String])(
     implicit transid: TransactionId): Future[ContainerId] = {
     Future {
@@ -140,29 +141,29 @@ class DockerClient(dockerHost: Option[String] = None,
       }
     }.flatMap { _ =>
       // Iff the semaphore was acquired successfully
-      // TODO: Figure out network name parse from args object
-      // TODO: Create docker network, apply CINEMA scripts to new network, then run container in that network
 
+      //Create docker network
       // get network name
-      var networkName = getNetworkName(args)
+      val networkName = getNetworkName(args)
+      val networkNameUnique = networkName ++ s"_${networkCounter}"
       var runArgs = args
       log.info(this,s"Parsed Network Name: ${networkName}")
-//      networkName = "testnet"
-      log.info(this,s"Actually used Network Name: ${networkName}")
 
       //create the network
       val networkCreateFuture = runCmd(
-        Seq("network", "create", networkName),
+        Seq("network", "create", networkNameUnique),
         config.timeouts.run
       ).flatMap( //if it succeeds return the network name
         _ => {
-          log.info(this, s"Network created: ${networkName}")
-          Future[String](networkName)
+          log.info(this, s"Network created: ${networkNameUnique}")
+          networkCounter += 1
+          Future[String](networkNameUnique)
         }
       ).recoverWith {
         case _ => {
-          log.error(this, s"Failed to create network ${networkName}, using bridge network")
+          log.error(this, s"Failed to create network ${networkNameUnique}, using bridge network")
           var runArgsStr = runArgs.mkString(" ")
+
           // find --network networkName and replace with --network bridge
           runArgsStr = runArgsStr.replaceAll(s"--network ${networkName}", "--network bridge")
 
@@ -172,7 +173,48 @@ class DockerClient(dockerHost: Option[String] = None,
           Future[String]("bridge")
         }
       }
-      //TODO: Actually add bridge network fallback here
+
+      //throttling
+//      val networkThrottleFuture = networkCreateFuture.flatMap(
+//        networkName => {
+//          if (networkName == "bridge") {
+//            log.info(this, s"Network is bridge, not proceeding with throttle")
+//            Future.failed(new Exception("bridge"))
+//          } else {
+//            log.info(this, s"Finding network interface for network ${networkName}")
+//            val args = dockerCmd ++ Seq("network", "inspect", "-f", "{{.Id}}", networkName)
+//            runCmd(args, config.timeouts.run)
+//          }
+//        }
+//      ).recoverWith({
+//        case e: Exception =>
+//          if(e.getMessage == "bridge") {
+//            log.info(this, s"Network is bridge, not proceeding with throttle")
+//            Future.failed(new Exception("bridge"))
+//          } else {
+//            log.error(this, s"Failed to find network interface: ${e.getMessage}")
+//            Future.failed(new Exception("interface not found"))
+//          }
+//        }
+//      ).flatMap(
+//        interface => {
+//          log.info(this, s"Found network interface: br-${interface.take(13)}")
+//          Future[String](s"br-${interface.take(13)}")
+//        }
+//      )
+
+
+//        .flatMap(
+//        networkId => {
+//          val containerNetworkInterface = s"br-${networkId.take(13)}"
+//          log.info(this, s"Throttling network interface ${containerNetworkInterface}")
+//          val rootQdiscArgs = Seq("tc", "qdisc", "add", "dev", containerNetworkInterface, "root", "handle", "1:", "htb", "default", "11")
+//          executeProcess(rootQdiscArgs, config.timeouts.run)
+//          val throttleQdiscArgs = Seq("tc", "class", "add", "dev", containerNetworkInterface, "parent", "1:", "classid", "1:11", "htb", "rate", "1mbit", "ceil", "1mbit")
+//        }
+//      )
+
+
 
       val containerCreationFuture = networkCreateFuture.flatMap({ //do whether or not it throws exception for rn
          _ => {
