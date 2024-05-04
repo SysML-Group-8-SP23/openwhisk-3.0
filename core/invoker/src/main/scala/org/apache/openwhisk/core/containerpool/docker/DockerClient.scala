@@ -168,7 +168,7 @@ class DockerClient(dockerHost: Option[String] = None,
               case Seq("--network", _) => Seq("--network", "bridge")
               case other => other
             }.toSeq
-            log.info(this, s"New runArgs: ${runArgs}")
+            log.info(this, s"New runArgs: ${runArgs.toString()}")
             Future[String]("bridge")
       }
       //TODO: Actually add bridge network fallback here
