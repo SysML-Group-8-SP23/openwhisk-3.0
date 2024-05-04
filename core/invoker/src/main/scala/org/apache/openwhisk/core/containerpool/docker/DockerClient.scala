@@ -157,6 +157,14 @@ class DockerClient(dockerHost: Option[String] = None,
         _ => {
           log.info(this, s"Network created: ${networkNameUnique}")
           networkCounter += 1
+          var runArgsStr = runArgs.mkString(" ")
+
+          // find --network networkName and replace with --network networkNameUnique
+          runArgsStr = runArgsStr.replaceAll(s"--network ${networkName}", s"--network ${networkNameUnique}")
+
+          //turn it back into a sequence
+          runArgs = runArgsStr.split(" ").toSeq
+          log.info(this, s"New runArgs: ${runArgs.mkString(" ")}")
           Future[String](networkNameUnique)
         }
       ).recoverWith {
