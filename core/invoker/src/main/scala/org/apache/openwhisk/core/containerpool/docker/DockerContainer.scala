@@ -114,8 +114,8 @@ object DockerContainer {
       s"${memory.toMB}m",
       "--memory-swap",
       s"${memory.toMB}m",
-//      "--network",
-//      network
+      "--network",
+      network
     ) ++
       environmentArgs ++
       dnsServers.flatMap(d => Seq("--dns", d)) ++
@@ -166,6 +166,7 @@ object DockerContainer {
             Future.failed(BlackboxStartupError(Messages.imagePullError(imageToUse)))
           }
       }
+      //TODO: Figure out network name for ip address inspection, maybe have to do in DCF layer
 //      ip <- docker.inspectIPAddress(id, network).recoverWith {
       ip <- docker.inspectIPAddress(id, "testnet").recoverWith {
         // remove the container immediately if inspect failed as

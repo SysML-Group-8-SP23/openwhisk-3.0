@@ -74,7 +74,7 @@ class DockerContainerFactory(instance: InvokerInstanceId,
       memory = memory,
       cpuShares = cpuShares,
       environment = Map("__OW_API_HOST" -> config.wskApiHost) ++ containerArgsConfig.extraEnvVarMap ++ Map("__ALLOCATED_BANDWIDTH" -> s"${bandwidth}"),
-      network = containerArgsConfig.network,
+      network = containerArgsConfig.network, //TODO: Figure out network name
       dnsServers = containerArgsConfig.dnsServers,
       dnsSearch = containerArgsConfig.dnsSearch,
       dnsOptions = containerArgsConfig.dnsOptions,

@@ -127,6 +127,9 @@ class DockerClient(dockerHost: Option[String] = None,
   // See https://github.com/moby/moby/issues/29369
   // Use a semaphore to make sure that at most 10 `docker run` commands are active
   // the same time.
+  private def getNetworkName(args: Seq[String]): String = {
+    args.sliding(2).collectFirst({ case Seq("--network", network) => network }).getOrElse("bridge")
+  }
   def run(image: String, args: Seq[String] = Seq.empty[String])(
     implicit transid: TransactionId): Future[ContainerId] = {
     Future {
@@ -137,14 +140,37 @@ class DockerClient(dockerHost: Option[String] = None,
       }
     }.flatMap { _ =>
       // Iff the semaphore was acquired successfully
+      // TODO: Figure out network name parse from args object
       // TODO: Create docker network, apply CINEMA scripts to new network, then run container in that network
 
-//      val networkCreationFuture = runCmd(Seq("network create testnet"), config.timeouts.run)
-      val networkCreationFuture = Future[String]("testnet") //hardcoded for now
-      val containerCreationFuture = networkCreationFuture.flatMap({ //do whether or not it throws exception for rn
+      // get network name
+      var networkName = getNetworkName(args)
+      log.info(this,s"Parsed Network Name: ${networkName}")
+      networkName = "testnet"
+      log.info(this,s"Hardcoded Network Name: ${networkName}")
+
+      //create the network
+      val networkCreateFuture = runCmd(
+        Seq("network", "create", networkName),
+        config.timeouts.run
+      ).flatMap( //if it succeeds return the network name
+        _ => {
+          log.info(this, s"Network created: ${networkName}")
+          Future[String](networkName)
+        }
+      ).recoverWith { //if it fails, return a string future with "bridge" as the network name
+        case _ =>
+          log.error(this, s"Failed to create network ${networkName}, using bridge network")
+          Future[String]("bridge")
+      }
+
+
+
+//      val networkCreationFuture = Future[String]("testnet") //hardcoded for now
+      val containerCreationFuture = networkCreateFuture.flatMap({ //do whether or not it throws exception for rn
          _ => {
           runCmd(
-            Seq("run", "-d") ++ args ++ Seq(image) ++ Seq("--network=testnet"),
+            Seq("run", "-d") ++ args ++ Seq(image),
             config.timeouts.run,
             if (config.maskDockerRunArgs) Some(Seq("run", "-d", "**ARGUMENTS sHIDDEN**", image)) else None)
         }
