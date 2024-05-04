@@ -157,6 +157,7 @@ class DockerClient(dockerHost: Option[String] = None,
         _ => {
           log.info(this, s"Network created: ${networkNameUnique}")
           networkCounter += 1
+          networkCounter = networkCounter % 1000 //just to keep the names from getting too long
           var runArgsStr = runArgs.mkString(" ")
 
           // find --network networkName and replace with --network networkNameUnique
