@@ -144,7 +144,7 @@ class DockerClient(dockerHost: Option[String] = None,
       val containerCreationFuture = networkCreationFuture.andThen({ //do whether or not it throws exception for rn
         case _ => {
           runCmd(
-            Seq("run", "-d") ++ args ++ Seq(image),
+            Seq("run", "-d") ++ args ++ Seq(image) ++ Seq("--network=testnet"),
             config.timeouts.run,
             if (config.maskDockerRunArgs) Some(Seq("run", "-d", "**ARGUMENTS sHIDDEN**", image)) else None)
         }
