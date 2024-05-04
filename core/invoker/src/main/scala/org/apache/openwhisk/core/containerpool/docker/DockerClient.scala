@@ -164,11 +164,12 @@ class DockerClient(dockerHost: Option[String] = None,
           log.error(this, s"Failed to create network ${networkName}, using bridge network")
           //iterate over runArgs in pairs
           //if the first element is "--network" change the second element to "bridge" in place
-            runArgs = runArgs.sliding(2).flatMap {
+            var tmp = runArgs.sliding(2).flatMap {
               case Seq("--network", _) => Seq("--network", "bridge")
               case other => other
             }.toSeq
-            log.info(this, s"New runArgs: ${runArgs.toString()}")
+            log.info(this, s"New runArgs: ${tmp.toString()}")
+            runArgs = tmp
             Future[String]("bridge")
       }
       //TODO: Actually add bridge network fallback here
