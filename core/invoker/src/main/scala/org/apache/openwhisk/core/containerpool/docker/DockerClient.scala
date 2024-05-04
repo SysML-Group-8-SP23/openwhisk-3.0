@@ -141,8 +141,8 @@ class DockerClient(dockerHost: Option[String] = None,
 
 //      val networkCreationFuture = runCmd(Seq("network create testnet"), config.timeouts.run)
       val networkCreationFuture = Future[String]("testnet") //hardcoded for now
-      val containerCreationFuture = networkCreationFuture.andThen({ //do whether or not it throws exception for rn
-        case _ => {
+      val containerCreationFuture = networkCreationFuture.map({ //do whether or not it throws exception for rn
+         _ => {
           runCmd(
             Seq("run", "-d") ++ args ++ Seq(image) ++ Seq("--network=testnet"),
             config.timeouts.run,
