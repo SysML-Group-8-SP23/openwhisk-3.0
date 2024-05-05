@@ -437,6 +437,7 @@
 
 - name: start invoker
   docker_container:
+    network_mode: "host"
     userns_mode: "host"
     pid_mode: "host"
     privileged: "yes"
