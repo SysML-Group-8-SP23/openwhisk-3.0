@@ -222,8 +222,8 @@ class DockerClient(dockerHost: Option[String] = None,
 //          val throttleQdiscArgs = Seq("tc", "class", "add", "dev", containerNetworkInterface, "parent", "1:", "classid", "1:11", "htb", "rate", "1mbit", "ceil", "1mbit")
 //        }
 //      )
-
-
+      val test = executeProcess(Seq("ls"), config.timeouts.run)
+      log.info(this, s"Test: ${test}")
 
       val containerCreationFuture = networkCreateFuture.flatMap({ //do whether or not it throws exception for rn
          _ => {
