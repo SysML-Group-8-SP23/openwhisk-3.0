@@ -80,7 +80,6 @@ RUN apt-get -y install openssl
 RUN apt -y install iproute2
 RUN apt -y install net-tools
 RUN apt -y install netperf
-RUN systemctl stop firewalld
 
 # Uncomment to fetch latest version of docker instead:
 #RUN wget -qO- https://get.docker.com | sh
