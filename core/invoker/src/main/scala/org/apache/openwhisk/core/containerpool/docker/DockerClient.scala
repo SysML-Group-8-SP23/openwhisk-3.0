@@ -130,6 +130,17 @@ class DockerClient(dockerHost: Option[String] = None,
   private def getNetworkName(args: Seq[String]): String = {
     args.sliding(2).collectFirst({ case Seq("--network", network) => network }).getOrElse("bridge")
   }
+  private def getNetworkBandwidthAllocation(args: Seq[String]): String = {
+    //network name follows s"${name}_network_${bandwidth}", from DockerContainerFactory.scala. Extract ONLY the "bandwidth" part of the string and return.
+    val fullName = getNetworkName(args)
+    val parts = fullName.split("_")
+    if (parts.length < 3) {
+      "10"
+    } else {
+      parts(parts.length - 1) //should be the bandwidth number
+    }
+  }
+
   private var networkCounter = 0
   def run(image: String, args: Seq[String] = Seq.empty[String])(
     implicit transid: TransactionId): Future[ContainerId] = {
@@ -145,13 +156,14 @@ class DockerClient(dockerHost: Option[String] = None,
       //Create docker network
       // get network name
       val networkName = getNetworkName(args)
+      val networkBandwidthAllocation = getNetworkBandwidthAllocation(args)
       val networkNameUnique = networkName ++ s"_${networkCounter}"
       var runArgs = args
       log.info(this,s"Parsed Network Name: ${networkName}")
 
-      //create the network
-      val networkCreateFuture = runCmd(
-        Seq("network", "create", networkNameUnique),
+      //run create_throttled_network.sh script with network name and rate limit from args
+      val networkCreateFuture = executeProcess(
+        Seq("bash", "create_throttled_network.sh", networkNameUnique, networkBandwidthAllocation, runArgs.mkString(" ")),
         config.timeouts.run
       ).flatMap( //if it succeeds return the network name
         _ => {
@@ -166,6 +178,7 @@ class DockerClient(dockerHost: Option[String] = None,
           //turn it back into a sequence
           runArgs = runArgsStr.split(" ").toSeq
           log.info(this, s"New runArgs: ${runArgs.mkString(" ")}")
+
           Future[String](networkNameUnique)
         }
       ).recoverWith {
@@ -179,60 +192,12 @@ class DockerClient(dockerHost: Option[String] = None,
           //turn it back into a sequence
           runArgs = runArgsStr.split(" ").toSeq
           log.info(this, s"New runArgs: ${runArgs.mkString(" ")}")
+
           Future[String]("bridge")
         }
       }
 
-      //throttling
-//      val networkThrottleFuture = networkCreateFuture.flatMap(
-//        networkName => {
-//          if (networkName == "bridge") {
-//            log.info(this, s"Network is bridge, not proceeding with throttle")
-//            Future.failed(new Exception("bridge"))
-//          } else {
-//            log.info(this, s"Finding network interface for network ${networkName}")
-//            val args = dockerCmd ++ Seq("network", "inspect", "-f", "{{.Id}}", networkName)
-//            runCmd(args, config.timeouts.run)
-//          }
-//        }
-//      ).recoverWith({
-//        case e: Exception =>
-//          if(e.getMessage == "bridge") {
-//            log.info(this, s"Network is bridge, not proceeding with throttle")
-//            Future.failed(new Exception("bridge"))
-//          } else {
-//            log.error(this, s"Failed to find network interface: ${e.getMessage}")
-//            Future.failed(new Exception("interface not found"))
-//          }
-//        }
-//      ).flatMap(
-//        interface => {
-//          log.info(this, s"Found network interface: br-${interface.take(13)}")
-//          Future[String](s"br-${interface.take(13)}")
-//        }
-//      )
-
-
-//        .flatMap(
-//        networkId => {
-//          val containerNetworkInterface = s"br-${networkId.take(13)}"
-//          log.info(this, s"Throttling network interface ${containerNetworkInterface}")
-//          val rootQdiscArgs = Seq("tc", "qdisc", "add", "dev", containerNetworkInterface, "root", "handle", "1:", "htb", "default", "11")
-//          executeProcess(rootQdiscArgs, config.timeouts.run)
-//          val throttleQdiscArgs = Seq("tc", "class", "add", "dev", containerNetworkInterface, "parent", "1:", "classid", "1:11", "htb", "rate", "1mbit", "ceil", "1mbit")
-//        }
-//      )
-      executeProcess(Seq("ls"), config.timeouts.run).flatMap(
-        result => {
-          log.info(this, s"ls command successful: ${result}")
-          Future[String]("ls")
-        }
-      ).recoverWith({
-        case e: Exception =>
-          log.error(this, s"ls command failed: ${e.getMessage}")
-          Future.failed(new Exception("ls failed"))
-      })
-
+      //TODO: add cleanup for any orphaned docker networks that might get created
 
       val containerCreationFuture = networkCreateFuture.flatMap({ //do whether or not it throws exception for rn
          _ => {

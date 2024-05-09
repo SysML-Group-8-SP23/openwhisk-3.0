@@ -289,7 +289,7 @@ class ContainerProxy(factory: (TransactionId,
         job.exec.pull,
         job.memoryLimit,
         poolConfig.cpuShare(10, job.memoryLimit),
-        10, //10 is the default bandwidth limit for pre-warm containers, need to sort this out later
+        10, //TODO: 10 is the default bandwidth limit for pre-warm containers, need to sort this out later
         None)
         .map(container =>
           PreWarmCompleted(PreWarmedData(container, job.exec.kind, job.memoryLimit, expires = job.ttl.map(_.fromNow))))
