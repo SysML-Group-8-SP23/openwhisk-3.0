@@ -16,6 +16,8 @@
 #
 ---
 # This role will install all necessary packages for Openwhisk.
+# Error bug: Had to change version of requests from 2.10.0 to 2.25.1
+# so that couchdb.yml could properly pull the docker image from docker hub
 
 - name: check for pip
   shell: "pip"
@@ -30,7 +32,7 @@
 - name: install requests
   pip:
     name: requests
-    version: 2.10.0
+    version: 2.25.1
   become: true
 
 - name: install docker for python
