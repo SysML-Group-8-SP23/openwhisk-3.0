@@ -420,6 +420,7 @@ object ShardingContainerPoolBalancer extends LoadBalancerProvider {
       val invoker = invokers(index)
       //test this invoker - if this action supports concurrency, use the scheduleConcurrent function
       if (invoker.status.isUsable && dispatched(invoker.id.toInt).tryAcquireConcurrent(fqn, maxConcurrent, slots)) {
+        logging.warn(this, s"sharding rps 5000 over 50 threads cpp take 2")
         Some(invoker.id, false)
       } else {
         // If we've gone through all invokers
@@ -429,7 +430,7 @@ object ShardingContainerPoolBalancer extends LoadBalancerProvider {
             // Choose a healthy invoker randomly
             val random = healthyInvokers(ThreadLocalRandom.current().nextInt(healthyInvokers.size)).id
             dispatched(random.toInt).forceAcquireConcurrent(fqn, maxConcurrent, slots)
-            logging.warn(this, s"system is overloaded. Chose invoker${random.toInt} by random assignment.")
+            logging.warn(this, s"system is overloaded. Chose invoker${random.toInt} by random assignment.sharding rps 5000 over 50 threads cpp take 2")
             Some(random, true)
           } else {
             None

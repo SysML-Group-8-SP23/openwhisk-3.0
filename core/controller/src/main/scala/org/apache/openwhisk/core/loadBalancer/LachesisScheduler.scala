@@ -228,7 +228,7 @@ class LachesisScheduler(
 
     override def receive: Receive = {
       case CurrentInvokerPoolState(newState) =>
-        logging.warn(this, s"The newState is: ${newState}")
+        // logging.warn(this, s"The newState is: ${newState}")
         schedulingState.updateInvokers(newState)
 
       // State of the cluster as it is right now
@@ -272,7 +272,7 @@ class LachesisScheduler(
     val hash = LachesisScheduler.generateHash(msg.user.namespace.name, action.fullyQualifiedName(false))
     val homeInvoker = hash % invokersToUse.size
     val stepSize = stepSizes(hash % stepSizes.size)
-    logging.warn(this, s"Home index is ${homeInvoker}")
+    // logging.warn(this, s"Home index is ${homeInvoker}")
 
     val (chosen, finalFqn: FullyQualifiedEntityName, memSlots: Int, cpuCores: Int) = if (invokersToUse.nonEmpty) {
       val (invoker: Option[(InvokerInstanceId, Boolean)], function: FullyQualifiedEntityName, slots: Int, cores: Int) = LachesisScheduler.schedule(
@@ -391,7 +391,7 @@ class LachesisScheduler(
       schedulingState.invokerCores
         .lift(invoker.toInt)
         .foreach(_.releaseConcurrent(entry.fullyQualifiedEntityName, entry.maxConcurrent, entry.cpuLimit.toInt))
-      logging.warn(this, s"Lachesis - releasing slots or cores for '${entry.id}'")
+      // logging.warn(this, s"Lachesis - releasing slots or cores for '${entry.id}'")
       // Completed invocation was a background activation to create perfect size warm container by the scheduler
       case _ => logging.warn(this, s"Lachesis - not releasing slots or cores, background activation '${entry.id}'")
     }
@@ -523,11 +523,11 @@ object LachesisScheduler extends LoadBalancerProvider {
           val invoker = invokers(chosenIndex)
           val finalCores = chosenFqn.name.toString.split("_")(1).toInt
           val finalSlots = chosenFqn.name.toString.split("_")(2).toInt
-          logging.warn(this, s"Lachesis launching: activation_id ${activationId} in rule ${finalRule} index ${chosenIndex} original name ${fqn.name} final name ${chosenFqn.name}")
+          logging.warn(this, s"Lachesis launching: activation_id ${activationId} in rule ${finalRule} index ${chosenIndex} original name ${fqn.name} final name ${chosenFqn.name} rps 5000 over 50 threads cpp take 2")
           (Some(invoker.id, false), chosenFqn, finalSlots, finalCores)
         // Case #6: None of the invokers have any warm containers or space for new containers, choosen one at random
         } else {
-          logging.warn(this, s"Lachesis launching: activation_id ${activationId} in case 5 it was rejected")
+          logging.warn(this, s"Lachesis launching: activation_id ${activationId} in case 5 it was rejected rps 5000 over 50 threads cpp take 2")
           // (None, chosenFqn, slots, cores)
           val healthyInvokers = invokers.filter(_.status.isUsable)
           if (healthyInvokers.nonEmpty) {
@@ -535,7 +535,7 @@ object LachesisScheduler extends LoadBalancerProvider {
             val random = healthyInvokers(ThreadLocalRandom.current().nextInt(healthyInvokers.size)).id
             dispatchedMem(random.toInt).forceAcquireConcurrent(fqn, maxConcurrent, slots)
             dispatchedCpu(random.toInt).forceAcquireConcurrent(fqn, maxConcurrent, cores)
-            logging.warn(this, s"system is overloaded. Chose invoker${random.toInt} by random assignment.")
+            // logging.warn(this, s"system is overloaded. Chose invoker${random.toInt} by random assignment.")
             (Some(random, true), fqn, slots, cores)
           } else {
             (None, fqn, slots, cores)
